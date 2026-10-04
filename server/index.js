@@ -1,0 +1,52 @@
+import express from 'express'
+import cors from 'cors'
+import multer from 'multer'
+import { ApiError } from './service.js'
+import { MAX_SIZE_MB, handleResumeUpload, healthCheck, uploadResume } from './controller.js'
+
+const PORT = process.env.PORT || 5000
+
+const app = express()
+app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173' }))
+app.use(express.json())
+
+app.get('/api/health', healthCheck)
+app.post('/api/resume/upload', uploadResume, handleResumeUpload)
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: { code: 'NOT_FOUND', message: `Route ${req.method} ${req.originalUrl} not found.` },
+  })
+})
+
+// Every error, including multer's, is returned as JSON.
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400
+    const message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? `File is too large. Max size is ${MAX_SIZE_MB} MB.`
+        : err.code === 'LIMIT_UNEXPECTED_FILE'
+          ? 'Unexpected field. Upload a single PDF in the "resume" field.'
+          : err.message
+    return res.status(status).json({ success: false, error: { code: err.code, message } })
+  }
+
+  if (err instanceof ApiError) {
+    return res.status(err.status).json({
+      success: false,
+      error: { code: err.code, message: err.message },
+    })
+  }
+
+  console.error(err)
+  res.status(500).json({
+    success: false,
+    error: { code: 'INTERNAL_ERROR', message: 'Something went wrong on the server.' },
+  })
+})
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`)
+})
