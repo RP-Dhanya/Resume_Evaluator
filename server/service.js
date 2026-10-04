@@ -308,6 +308,28 @@ function scoreLength(wordCount) {
   return 1
 }
 
+// Clarity (20): clear sections (8), sensible length (6), concise lines (6).
+function scoreClarity(lines, sections, lengthPoints) {
+  const longLines = lines.filter((l) => l.split(/\s+/).length > 30).length
+  const longRatio = lines.length ? longLines / lines.length : 1
+  const concise = longRatio < 0.05 ? 6 : longRatio < 0.15 ? 4 : 2
+  const points = Math.round((sections.points / 15) * 8) + Math.round((lengthPoints / 10) * 6) + concise
+  return { points, longLines }
+}
+
+// ATS readability (20): contact details (8), standard headings (6), clean text (3), 1–2 pages (3).
+function scoreAts(text, pages, sections, contact) {
+  const standardHeadings = ['Experience', 'Skills', 'Education'].filter((s) => sections.found.includes(s)).length
+  const odd = text.match(/[^\x20-\x7E\s•–—‘’“”₹€£·|]/g)?.length || 0
+  const cleanText = odd / Math.max(text.length, 1) < 0.01
+  const points =
+    Math.round((contact.points / 10) * 8) +
+    standardHeadings * 2 +
+    (cleanText ? 3 : 1) +
+    (!pages || pages <= 2 ? 3 : 1)
+  return { points, standardHeadings, cleanText }
+}
+
 function ratingFor(score) {
   if (score >= 80) return 'Excellent match'
   if (score >= 65) return 'Good match'
@@ -321,10 +343,10 @@ function ratingFor(score) {
 
 const AI_CATEGORIES = [
   { key: 'skills', label: 'Skills match', max: 35, guide: 'required and preferred skills/tools from the JD that the resume demonstrates' },
-  { key: 'experience', label: 'Experience relevance', max: 25, guide: 'how relevant the roles, seniority, domain and years of experience are to the JD' },
-  { key: 'impact', label: 'Impact & achievements', max: 15, guide: 'measurable results, ownership and strong action verbs' },
-  { key: 'structure', label: 'Clarity & structure', max: 15, guide: 'clear sections, concise bullets, readable and well organised' },
-  { key: 'ats', label: 'ATS readiness', max: 10, guide: 'contact details, standard headings, keywords phrased as in the JD' },
+  { key: 'experience', label: 'Experience relevance', max: 20, guide: 'how relevant the roles, seniority, domain and years of experience are to the JD' },
+  { key: 'impact', label: 'Impact & results', max: 15, guide: 'measurable results (numbers, %, scale), ownership and strong action verbs' },
+  { key: 'clarity', label: 'Clarity', max: 15, guide: 'clear sections, concise and specific bullets, easy to scan, sensible length, no fluff' },
+  { key: 'ats', label: 'ATS readability', max: 15, guide: 'how easily an applicant tracking system can parse it: contact details, standard section headings, plain text layout, JD keywords phrased the same way' },
 ]
 
 const MAX_RESUME_CHARS = 12000
@@ -477,49 +499,47 @@ function scoreWithRules(text, pages, jobDescription) {
   const impact = scoreImpact(lines, resumeText)
   const contact = scoreContact(resumeText)
   const lengthPoints = scoreLength(wordCount)
-  const keywordPoints = Math.round(keywords.ratio * 45)
+  const clarity = scoreClarity(lines, sections, lengthPoints)
+  const ats = scoreAts(text, pages, sections, contact)
 
   const breakdown = [
     {
       key: 'keywords',
       label: 'Job description match',
-      score: keywordPoints,
-      max: 45,
+      score: Math.round(keywords.ratio * 40),
+      max: 40,
       detail: `${keywords.matched.length} of ${keywords.matched.length + keywords.missing.length} key skills and terms from the job description appear in your resume.`,
     },
     {
       key: 'impact',
-      label: 'Impact & achievements',
+      label: 'Impact & results',
       score: impact.points,
       max: 20,
       detail: `${impact.quantified} line(s) with measurable results and ${impact.verbs.length} strong action verb(s).`,
     },
     {
-      key: 'sections',
-      label: 'Resume structure',
-      score: sections.points,
-      max: 15,
-      detail: sections.missing.length
-        ? `Found: ${sections.found.join(', ') || 'none'}. Missing: ${sections.missing.join(', ')}.`
-        : 'All key sections are present.',
+      key: 'clarity',
+      label: 'Clarity',
+      score: clarity.points,
+      max: 20,
+      detail: [
+        sections.missing.length ? `Missing sections: ${sections.missing.join(', ')}` : 'Clear sections',
+        `${wordCount} words${pages ? ` on ${pages} page(s)` : ''} (aim for 400–900)`,
+        clarity.longLines ? `${clarity.longLines} overly long line(s)` : 'Concise lines',
+      ].join(' · '),
     },
     {
-      key: 'contact',
-      label: 'Contact details',
-      score: contact.points,
-      max: 10,
+      key: 'ats',
+      label: 'ATS readability',
+      score: ats.points,
+      max: 20,
       detail: [
         contact.email ? 'Email ✓' : 'Email missing',
         contact.phone ? 'Phone ✓' : 'Phone missing',
         contact.profile ? 'LinkedIn/GitHub ✓' : 'LinkedIn/GitHub missing',
+        ats.standardHeadings === 3 ? 'Standard headings ✓' : `${ats.standardHeadings}/3 standard headings`,
+        ats.cleanText ? 'Clean, parseable text ✓' : 'Unusual characters may confuse ATS',
       ].join(' · '),
-    },
-    {
-      key: 'length',
-      label: 'Length',
-      score: lengthPoints,
-      max: 10,
-      detail: `${wordCount} words${pages ? ` across ${pages} page(s)` : ''}. Aim for 400–900 words.`,
     },
   ]
 
@@ -545,6 +565,18 @@ function scoreWithRules(text, pages, jobDescription) {
   }
   if (!contact.profile) {
     suggestions.push('Add a link to your LinkedIn or GitHub profile.')
+  }
+  if (clarity.longLines > 2) {
+    suggestions.push('Break long sentences into short, scannable bullet points (one idea per bullet).')
+  }
+  if (ats.standardHeadings < 3) {
+    suggestions.push('Use standard ATS headings: "Experience", "Skills" and "Education".')
+  }
+  if (!ats.cleanText) {
+    suggestions.push('Avoid icons, tables, columns and special symbols. Use a simple single-column layout for ATS.')
+  }
+  if (pages > 2) {
+    suggestions.push('Keep your resume to 1–2 pages so ATS and recruiters read all of it.')
   }
   if (wordCount < 400) {
     suggestions.push('Your resume is quite short. Add more detail about your projects and responsibilities.')

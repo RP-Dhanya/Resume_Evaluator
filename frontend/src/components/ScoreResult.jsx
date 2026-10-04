@@ -5,6 +5,12 @@ function scoreColor(score) {
   return { text: 'text-rose-400', stroke: '#fb7185', bar: 'bg-rose-400' }
 }
 
+const HIGHLIGHTS = [
+  { key: 'impact', label: 'Impact & results', hint: 'Measurable achievements and action verbs' },
+  { key: 'clarity', label: 'Clarity', hint: 'Clear sections, concise bullets, right length' },
+  { key: 'ats', label: 'ATS readability', hint: 'How easily applicant tracking systems parse it' },
+]
+
 function ScoreRing({ score }) {
   const radius = 70
   const circumference = 2 * Math.PI * radius
@@ -100,6 +106,27 @@ export default function ScoreResult({ result, onReset }) {
             Score another resume
           </button>
         </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {HIGHLIGHTS.map(({ key, label, hint }) => {
+          const item = result.breakdown.find((b) => b.key === key)
+          if (!item) return null
+          const pct = Math.round((item.score / item.max) * 100)
+          return (
+            <div key={key} className="rounded-2xl border border-slate-800 bg-white/5 p-5">
+              <p className="text-sm font-medium text-slate-300">{label}</p>
+              <p className="mt-2">
+                <span className={`text-4xl font-extrabold ${scoreColor(pct).text}`}>{pct}</span>
+                <span className="text-sm text-slate-400"> / 100</span>
+              </p>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-700/60">
+                <div className={`h-full rounded-full ${scoreColor(pct).bar}`} style={{ width: `${pct}%` }} />
+              </div>
+              <p className="mt-2 text-xs text-slate-400">{hint}</p>
+            </div>
+          )
+        })}
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-white/5 p-6">

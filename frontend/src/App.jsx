@@ -46,7 +46,7 @@ export default function App() {
         )}
       </nav>
 
-      <main className="mx-auto flex max-w-3xl flex-col items-center px-6 pt-8 pb-24 text-center">
+      <main className={`mx-auto flex ${result ? 'max-w-3xl' : 'max-w-5xl'} flex-col items-center px-6 pt-8 pb-24 text-center`}>
         {result ? (
           <>
             <h1 className="mb-8 text-3xl font-extrabold tracking-tight sm:text-4xl">Your resume score</h1>

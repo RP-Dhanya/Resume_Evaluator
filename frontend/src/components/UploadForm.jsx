@@ -52,8 +52,11 @@ export default function UploadForm({ onSubmit, loading, serverError }) {
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-6 text-left">
-      <div>
-        <label className="mb-2 block text-sm font-semibold text-slate-200">1. Your resume</label>
+      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="flex flex-col">
+        <label className="mb-2 block text-sm font-semibold text-slate-200">
+          1. Upload your resume <span className="font-normal text-slate-400">(PDF)</span>
+        </label>
         {file ? (
           <div className="flex items-center justify-between rounded-2xl border border-slate-700 bg-white/5 p-4">
             <div className="flex items-center gap-3 overflow-hidden">
@@ -90,13 +93,13 @@ export default function UploadForm({ onSubmit, loading, serverError }) {
               setIsDragging(false)
               handleFile(e.dataTransfer.files[0])
             }}
-            className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition ${
+            className={`flex flex-1 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition ${
               isDragging
                 ? 'scale-[1.01] border-indigo-400 bg-indigo-500/20'
                 : 'border-slate-600 bg-white/5 hover:border-indigo-400 hover:bg-white/10'
             }`}
           >
-            <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-full bg-indigo-500/20">
+            <div className="mb-3 grid h-14 w-14 place-items-center rounded-full bg-indigo-500/20">
               <svg className="h-7 w-7 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
               </svg>
@@ -117,18 +120,18 @@ export default function UploadForm({ onSubmit, loading, serverError }) {
         {fileError && <p className="mt-2 text-sm text-red-400">{fileError}</p>}
       </div>
 
-      <div>
+      <div className="flex flex-col">
         <label htmlFor="jd" className="mb-2 block text-sm font-semibold text-slate-200">
-          2. Job description
+          2. Enter the job description <span className="font-normal text-slate-400">(required)</span>
         </label>
         <textarea
           id="jd"
           value={jobDescription}
           onChange={(e) => setJobDescription(e.target.value)}
           disabled={loading}
-          rows={8}
-          placeholder="Paste the full job description here: responsibilities, requirements and skills…"
-          className="w-full resize-y rounded-2xl border border-slate-700 bg-white/5 p-4 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30 focus:outline-none disabled:opacity-60"
+          rows={10}
+          placeholder={'Paste or type the job description here, e.g.\n\nWe are hiring a Full Stack Developer…\nRequirements: React, Node.js, SQL, 3+ years of experience…'}
+          className="min-h-56 w-full flex-1 resize-y rounded-2xl border border-slate-700 bg-white/5 p-4 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30 focus:outline-none disabled:opacity-60"
         />
         <div className="mt-1 flex justify-between text-xs">
           <span className="text-red-400">{jdError}</span>
@@ -138,6 +141,7 @@ export default function UploadForm({ onSubmit, loading, serverError }) {
               : `${jdLength.toLocaleString()} / ${JD_MAX_LENGTH.toLocaleString()}`}
           </span>
         </div>
+      </div>
       </div>
 
       {serverError && (

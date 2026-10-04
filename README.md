@@ -34,7 +34,7 @@ Other routes: `POST /api/resume/upload` (text extraction only) and `GET /api/hea
 
 Scoring uses the [labd](https://agent.thedevlabs.io) AI API when `LABD_API_KEY` is set in `server/.env`.
 The server extracts the resume text, sends it with the job description to labd, and asks for a JSON score across:
-Skills match (35), Experience relevance (25), Impact & achievements (15), Clarity & structure (15) and ATS readiness (10).
+Skills match (35), Experience relevance (20), Impact & results (15), Clarity (15) and ATS readability (15).
 The server validates labd's reply, caps each category at its maximum and adds up the total itself.
 
 If labd is not configured, fails (401/402/403/429, timeout, or an unusable reply), the server falls back to
@@ -44,11 +44,12 @@ Built-in rules:
 
 | Category | Points |
 |---|---|
-| Job description match (skills and keywords) | 45 |
-| Impact & achievements (numbers, action verbs) | 20 |
-| Resume structure (Experience, Skills, Education, Summary/Projects) | 15 |
-| Contact details (email, phone, LinkedIn/GitHub) | 10 |
-| Length (400–900 words is ideal) | 10 |
+| Job description match (skills and keywords) | 40 |
+| Impact & results (numbers, action verbs) | 20 |
+| Clarity (sections, length, concise lines) | 20 |
+| ATS readability (contact details, standard headings, clean text, 1–2 pages) | 20 |
+
+The results page highlights Impact & results, Clarity and ATS readability as separate scores out of 100.
 
 ## Deploy
 
