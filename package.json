@@ -4,6 +4,10 @@
   "type": "module",
   "scripts": {
     "install:all": "npm install --prefix frontend && npm install --prefix server",
-    "build": "npm run build --prefix frontend"
+    "build": "npm run build --prefix frontend",
+    "dev": "concurrently -n server,frontend -c blue,magenta \"npm run dev --prefix server\" \"npm run dev --prefix frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
   }
 }

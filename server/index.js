@@ -2,7 +2,13 @@ import express from 'express'
 import cors from 'cors'
 import multer from 'multer'
 import { ApiError } from './service.js'
-import { MAX_SIZE_MB, handleResumeUpload, healthCheck, uploadResume } from './controller.js'
+import {
+  MAX_SIZE_MB,
+  handleResumeScore,
+  handleResumeUpload,
+  healthCheck,
+  uploadResume,
+} from './controller.js'
 
 const PORT = process.env.PORT || 5000
 
@@ -12,6 +18,7 @@ app.use(express.json())
 
 app.get('/api/health', healthCheck)
 app.post('/api/resume/upload', uploadResume, handleResumeUpload)
+app.post('/api/resume/score', uploadResume, handleResumeScore)
 
 app.use((req, res) => {
   res.status(404).json({

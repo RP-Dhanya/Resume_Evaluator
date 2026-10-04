@@ -53,3 +53,362 @@ export async function processResume(file) {
     text,
   }
 }
+
+// ---------------------------------------------------------------------------
+// Scoring
+// ---------------------------------------------------------------------------
+
+// Known skills, each with the spellings that count as a match.
+const SKILLS = [
+  ['JavaScript', ['javascript', 'js', 'es6']],
+  ['TypeScript', ['typescript']],
+  ['Python', ['python']],
+  ['Java', ['java']],
+  ['C++', ['c++', 'cpp']],
+  ['C#', ['c#', 'csharp']],
+  ['Go', ['golang']],
+  ['Rust', ['rust']],
+  ['Ruby', ['ruby']],
+  ['PHP', ['php']],
+  ['Swift', ['swift']],
+  ['Kotlin', ['kotlin']],
+  ['Scala', ['scala']],
+  ['SQL', ['sql']],
+  ['NoSQL', ['nosql']],
+  ['HTML', ['html', 'html5']],
+  ['CSS', ['css', 'css3']],
+  ['Sass', ['sass', 'scss']],
+  ['Tailwind CSS', ['tailwind', 'tailwindcss']],
+  ['React', ['react', 'react.js', 'reactjs']],
+  ['React Native', ['react native']],
+  ['Redux', ['redux']],
+  ['Angular', ['angular']],
+  ['Vue', ['vue', 'vue.js', 'vuejs']],
+  ['Next.js', ['next.js', 'nextjs']],
+  ['Node.js', ['node.js', 'nodejs', 'node']],
+  ['Express', ['express', 'express.js', 'expressjs']],
+  ['Django', ['django']],
+  ['Flask', ['flask']],
+  ['FastAPI', ['fastapi']],
+  ['Spring Boot', ['spring boot', 'spring']],
+  ['.NET', ['.net', 'dotnet', 'asp.net']],
+  ['GraphQL', ['graphql']],
+  ['REST APIs', ['rest api', 'rest apis', 'restful', 'rest']],
+  ['Microservices', ['microservices', 'microservice']],
+  ['MongoDB', ['mongodb', 'mongo']],
+  ['PostgreSQL', ['postgresql', 'postgres']],
+  ['MySQL', ['mysql']],
+  ['Redis', ['redis']],
+  ['Elasticsearch', ['elasticsearch']],
+  ['Kafka', ['kafka']],
+  ['RabbitMQ', ['rabbitmq']],
+  ['AWS', ['aws', 'amazon web services']],
+  ['Azure', ['azure']],
+  ['GCP', ['gcp', 'google cloud']],
+  ['Docker', ['docker']],
+  ['Kubernetes', ['kubernetes', 'k8s']],
+  ['Terraform', ['terraform']],
+  ['CI/CD', ['ci/cd', 'cicd', 'continuous integration']],
+  ['Jenkins', ['jenkins']],
+  ['GitHub Actions', ['github actions']],
+  ['Git', ['git', 'github', 'gitlab']],
+  ['Linux', ['linux', 'unix']],
+  ['Jest', ['jest']],
+  ['Cypress', ['cypress']],
+  ['Selenium', ['selenium']],
+  ['Unit testing', ['unit testing', 'unit tests', 'tdd']],
+  ['Webpack', ['webpack']],
+  ['Vite', ['vite']],
+  ['Figma', ['figma']],
+  ['Machine learning', ['machine learning', 'ml']],
+  ['Deep learning', ['deep learning']],
+  ['NLP', ['nlp', 'natural language processing']],
+  ['LLMs', ['llm', 'llms', 'large language models', 'generative ai', 'genai']],
+  ['TensorFlow', ['tensorflow']],
+  ['PyTorch', ['pytorch']],
+  ['Pandas', ['pandas']],
+  ['NumPy', ['numpy']],
+  ['Spark', ['spark', 'pyspark']],
+  ['Hadoop', ['hadoop']],
+  ['Airflow', ['airflow']],
+  ['Data analysis', ['data analysis', 'data analytics']],
+  ['Tableau', ['tableau']],
+  ['Power BI', ['power bi', 'powerbi']],
+  ['Excel', ['excel']],
+  ['Agile', ['agile']],
+  ['Scrum', ['scrum']],
+  ['Jira', ['jira']],
+  ['System design', ['system design']],
+  ['Data structures', ['data structures', 'algorithms']],
+  ['Communication', ['communication']],
+  ['Leadership', ['leadership', 'mentoring', 'mentorship']],
+  ['Problem solving', ['problem solving', 'problem-solving']],
+  ['Project management', ['project management']],
+  ['Stakeholder management', ['stakeholder management', 'stakeholders']],
+].map(([name, patterns]) => ({
+  name,
+  patterns,
+  regexes: patterns.map(
+    (p) => new RegExp(`(?<![a-z0-9.])${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9+#])`, 'g')
+  ),
+}))
+
+const STOPWORDS = new Set(
+  `a about above across after again against all also am an and any are as at be because been before
+  being below between both but by can could did do does doing down during each etc few for from further
+  had has have having he her here hers him his how i if in into is it its itself just me more most my
+  no nor not of off on once only or other our ours out over own same she should so some such than that
+  the their theirs them then there these they this those through to too under until up very was we were
+  what when where which while who whom why will with would you your yours yourself within without per via
+  ability able across apply candidate candidates company day degree role roles job jobs team teams work
+  working works experience experienced experiences years year strong skills skill knowledge looking join
+  plus preferred required requirements require requires responsibilities responsible including include
+  includes must well good great excellent using use used build building develop developing development
+  understanding familiarity familiar proficiency proficient hands new help make making ensure across
+  opportunity opportunities environment based like etc minimum least related relevant similar field
+  bachelor bachelors master masters equivalent position candidates ideal ideally seeking want need needs
+  closely other others various multiple across day-to-day high quality best practices drive driven support`.split(/\s+/)
+)
+
+const ACTION_VERBS = [
+  'achieved', 'built', 'created', 'delivered', 'designed', 'developed', 'drove', 'engineered',
+  'established', 'implemented', 'improved', 'increased', 'launched', 'led', 'managed', 'mentored',
+  'migrated', 'optimized', 'owned', 'reduced', 'refactored', 'scaled', 'shipped', 'spearheaded',
+  'streamlined', 'automated', 'architected', 'collaborated', 'coordinated', 'deployed', 'integrated',
+  'maintained', 'resolved', 'saved', 'grew', 'won', 'analyzed', 'transformed', 'enhanced', 'accelerated',
+]
+
+const SECTIONS = [
+  { key: 'experience', label: 'Experience', points: 5, pattern: /^(work |professional |relevant )?(experience|employment( history)?|work history)$/ },
+  { key: 'skills', label: 'Skills', points: 4, pattern: /^(technical |core |key )?(skills|competencies|technologies|tech stack)( & tools| and tools)?$/ },
+  { key: 'education', label: 'Education', points: 3, pattern: /^(education|academic background|qualifications)$/ },
+  { key: 'summary', label: 'Summary or projects', points: 3, pattern: /^(professional )?(summary|profile|objective|about me|projects|personal projects|key projects)$/ },
+]
+
+function stem(word) {
+  if (word.length > 5 && word.endsWith('ing')) return word.slice(0, -3)
+  if (word.length > 4 && word.endsWith('ed')) return word.slice(0, -2)
+  if (word.length > 4 && word.endsWith('es')) return word.slice(0, -2)
+  if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1)
+  return word
+}
+
+function tokenize(text) {
+  return text.match(/[a-z][a-z0-9+#.-]*[a-z0-9+#]|[a-z]/g) || []
+}
+
+function countSkill(skill, text) {
+  return skill.regexes.reduce((sum, re) => sum + (text.match(re)?.length || 0), 0)
+}
+
+function extractJdKeywords(jd) {
+  const skills = SKILLS.map((skill) => ({ skill, count: countSkill(skill, jd) }))
+    .filter((s) => s.count > 0)
+    .map(({ skill, count }) => ({
+      term: skill.name,
+      skill,
+      weight: 2 + Math.min(count - 1, 2),
+    }))
+
+  // Words already covered by a skill (e.g. "react", "node") shouldn't count twice.
+  const skillWords = new Set(
+    skills.flatMap(({ skill }) => skill.patterns.flatMap(tokenize)).map(stem)
+  )
+
+  const counts = new Map()
+  for (const word of tokenize(jd)) {
+    if (word.length < 3 || STOPWORDS.has(word) || /^\d/.test(word)) continue
+    const s = stem(word)
+    if (skillWords.has(s) || STOPWORDS.has(s)) continue
+    const entry = counts.get(s) || { term: word, count: 0 }
+    entry.count++
+    counts.set(s, entry)
+  }
+
+  const others = [...counts.entries()]
+    .filter(([, e]) => e.count >= 2)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 10)
+    .map(([s, e]) => ({ term: e.term[0].toUpperCase() + e.term.slice(1), stem: s, weight: 1 }))
+
+  return [...skills.slice(0, 25), ...others]
+}
+
+function scoreKeywords(resumeText, jd) {
+  const keywords = extractJdKeywords(jd)
+  if (keywords.length === 0) {
+    throw new ApiError(
+      422,
+      'JD_NO_KEYWORDS',
+      'Could not find any skills or keywords in the job description. Paste the full job posting.'
+    )
+  }
+
+  const resumeStems = new Set(tokenize(resumeText).map(stem))
+  const matched = []
+  const missing = []
+  let matchedWeight = 0
+  let totalWeight = 0
+
+  for (const k of keywords) {
+    totalWeight += k.weight
+    const found = k.skill ? countSkill(k.skill, resumeText) > 0 : resumeStems.has(k.stem)
+    if (found) {
+      matchedWeight += k.weight
+      matched.push(k.term)
+    } else {
+      missing.push(k.term)
+    }
+  }
+
+  return { ratio: matchedWeight / totalWeight, matched, missing }
+}
+
+function scoreSections(lines) {
+  const found = []
+  const missing = []
+  let points = 0
+  for (const section of SECTIONS) {
+    const hasIt = lines.some((line) => {
+      const heading = line.replace(/[:\s]+$/, '').trim()
+      return heading.length <= 40 && section.pattern.test(heading)
+    })
+    if (hasIt) {
+      points += section.points
+      found.push(section.label)
+    } else {
+      missing.push(section.label)
+    }
+  }
+  return { points, found, missing }
+}
+
+function scoreImpact(lines, text) {
+  const quantified = lines.filter((line) =>
+    /(\d+(\.\d+)?\s?(%|percent|x\b|k\b|m\b|\+))|([$₹€£]\s?\d)|(\b\d{2,}\b)/.test(line)
+  ).length
+  const verbs = ACTION_VERBS.filter((v) => new RegExp(`\\b${v}\\b`).test(text))
+  const points = Math.round(Math.min(quantified / 6, 1) * 12 + Math.min(verbs.length / 8, 1) * 8)
+  return { points, quantified, verbs }
+}
+
+function scoreContact(text) {
+  const email = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/.test(text)
+  const phone = /(\+?\d[\d\s().-]{8,}\d)/.test(text)
+  const profile = /(linkedin\.com|github\.com|portfolio|behance\.net|gitlab\.com)/.test(text)
+  return { points: (email ? 4 : 0) + (phone ? 3 : 0) + (profile ? 3 : 0), email, phone, profile }
+}
+
+function scoreLength(wordCount) {
+  if (wordCount >= 400 && wordCount <= 900) return 10
+  if ((wordCount >= 250 && wordCount < 400) || (wordCount > 900 && wordCount <= 1200)) return 7
+  if ((wordCount >= 150 && wordCount < 250) || (wordCount > 1200 && wordCount <= 1600)) return 4
+  return 1
+}
+
+function ratingFor(score) {
+  if (score >= 80) return 'Excellent match'
+  if (score >= 65) return 'Good match'
+  if (score >= 45) return 'Fair match'
+  return 'Needs work'
+}
+
+export async function scoreResume(file, jobDescription) {
+  const { text, pages } = await extractPdfText(file.buffer)
+  const resumeText = text.toLowerCase()
+  const jd = jobDescription.toLowerCase()
+  const lines = resumeText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const wordCount = text.split(/\s+/).filter(Boolean).length
+
+  const keywords = scoreKeywords(resumeText, jd)
+  const sections = scoreSections(lines)
+  const impact = scoreImpact(lines, resumeText)
+  const contact = scoreContact(resumeText)
+  const lengthPoints = scoreLength(wordCount)
+  const keywordPoints = Math.round(keywords.ratio * 45)
+
+  const breakdown = [
+    {
+      key: 'keywords',
+      label: 'Job description match',
+      score: keywordPoints,
+      max: 45,
+      detail: `${keywords.matched.length} of ${keywords.matched.length + keywords.missing.length} key skills and terms from the job description appear in your resume.`,
+    },
+    {
+      key: 'impact',
+      label: 'Impact & achievements',
+      score: impact.points,
+      max: 20,
+      detail: `${impact.quantified} line(s) with measurable results and ${impact.verbs.length} strong action verb(s).`,
+    },
+    {
+      key: 'sections',
+      label: 'Resume structure',
+      score: sections.points,
+      max: 15,
+      detail: sections.missing.length
+        ? `Found: ${sections.found.join(', ') || 'none'}. Missing: ${sections.missing.join(', ')}.`
+        : 'All key sections are present.',
+    },
+    {
+      key: 'contact',
+      label: 'Contact details',
+      score: contact.points,
+      max: 10,
+      detail: [
+        contact.email ? 'Email ✓' : 'Email missing',
+        contact.phone ? 'Phone ✓' : 'Phone missing',
+        contact.profile ? 'LinkedIn/GitHub ✓' : 'LinkedIn/GitHub missing',
+      ].join(' · '),
+    },
+    {
+      key: 'length',
+      label: 'Length',
+      score: lengthPoints,
+      max: 10,
+      detail: `${wordCount} words${pages ? ` across ${pages} page(s)` : ''}. Aim for 400–900 words.`,
+    },
+  ]
+
+  const score = breakdown.reduce((sum, b) => sum + b.score, 0)
+
+  const suggestions = []
+  if (keywords.missing.length) {
+    suggestions.push(
+      `Add the job's missing keywords where they honestly apply: ${keywords.missing.slice(0, 8).join(', ')}.`
+    )
+  }
+  if (impact.quantified < 4) {
+    suggestions.push('Quantify your achievements with numbers, e.g. "cut load time by 40%" or "served 10k users".')
+  }
+  if (impact.verbs.length < 5) {
+    suggestions.push('Start bullet points with strong action verbs like "Built", "Led", "Optimized" or "Delivered".')
+  }
+  if (sections.missing.length) {
+    suggestions.push(`Add clear section headings for: ${sections.missing.join(', ')}.`)
+  }
+  if (!contact.email || !contact.phone) {
+    suggestions.push('Make sure your email and phone number are at the top of your resume.')
+  }
+  if (!contact.profile) {
+    suggestions.push('Add a link to your LinkedIn or GitHub profile.')
+  }
+  if (wordCount < 400) {
+    suggestions.push('Your resume is quite short. Add more detail about your projects and responsibilities.')
+  } else if (wordCount > 900) {
+    suggestions.push('Your resume is long. Trim older or less relevant points to keep it focused.')
+  }
+  if (suggestions.length === 0) {
+    suggestions.push('Great job! Your resume is well aligned with this role.')
+  }
+
+  return {
+    score,
+    rating: ratingFor(score),
+    breakdown,
+    keywords: { matched: keywords.matched, missing: keywords.missing },
+    suggestions,
+    resume: { fileName: file.originalname, fileSize: file.size, pages, wordCount },
+  }
+}
