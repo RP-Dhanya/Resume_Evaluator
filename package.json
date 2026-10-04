@@ -1,0 +1,9 @@
+{
+  "name": "resume-evaluator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "install:all": "npm install --prefix frontend && npm install --prefix server",
+    "build": "npm run build --prefix frontend"
+  }
+}

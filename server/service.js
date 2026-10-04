@@ -1,4 +1,8 @@
 import { PDFParse } from 'pdf-parse'
+import { getData } from 'pdf-parse/worker'
+
+// Load the PDF worker inline so it is found on serverless hosts like Vercel.
+PDFParse.setWorker(getData())
 
 export class ApiError extends Error {
   constructor(status, code, message) {
