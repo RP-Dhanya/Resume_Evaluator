@@ -66,15 +66,32 @@ export default function ScoreResult({ result, onReset }) {
 
   return (
     <div className="w-full space-y-6 text-left">
+      {result.notice && (
+        <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
+          {result.notice}
+        </div>
+      )}
+
       <div className="flex flex-col items-center gap-6 rounded-2xl border border-slate-800 bg-white/5 p-6 sm:flex-row sm:p-8">
         <ScoreRing score={result.score} />
         <div className="text-center sm:text-left">
-          <p className={`text-2xl font-bold ${color.text}`}>{result.rating}</p>
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+            <p className={`text-2xl font-bold ${color.text}`}>{result.rating}</p>
+            {result.engine === 'labd' && (
+              <span className="rounded-full border border-indigo-400/40 bg-indigo-500/15 px-2.5 py-0.5 text-xs font-medium text-indigo-200">
+                AI-scored by labd
+              </span>
+            )}
+          </div>
           <p className="mt-2 text-slate-300">
-            Your resume <span className="font-medium text-white">{result.resume.fileName}</span> matches{' '}
-            {result.keywords.matched.length} of{' '}
-            {result.keywords.matched.length + result.keywords.missing.length} key terms from the job
-            description.
+            {result.summary || (
+              <>
+                Your resume <span className="font-medium text-white">{result.resume.fileName}</span> matches{' '}
+                {result.keywords.matched.length} of{' '}
+                {result.keywords.matched.length + result.keywords.missing.length} key terms from the job
+                description.
+              </>
+            )}
           </p>
           <button
             onClick={onReset}

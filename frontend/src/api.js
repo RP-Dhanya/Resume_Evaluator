@@ -12,9 +12,18 @@ export async function scoreResume(file, jobDescription) {
 
   let res
   try {
-    res = await fetch('/api/resume/score', { method: 'POST', body })
-  } catch {
-    throw new Error('Could not reach the server. Check your connection and try again.')
+    res = await fetch('/api/resume/score', {
+      method: 'POST',
+      body,
+      // AI scoring can take a while; give up after 60s instead of hanging forever.
+      signal: AbortSignal.timeout(60000),
+    })
+  } catch (err) {
+    throw new Error(
+      err.name === 'TimeoutError'
+        ? 'Scoring took too long. Please try again.'
+        : 'Could not reach the server. Check your connection and try again.'
+    )
   }
 
   let payload = null

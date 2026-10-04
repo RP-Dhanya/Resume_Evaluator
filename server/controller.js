@@ -1,5 +1,6 @@
 import multer from 'multer'
-import { ApiError, processResume, scoreResume } from './service.js'
+import { isDbConfigured } from './db.js'
+import { ApiError, getRecentScores, getScore, processResume, scoreResume } from './service.js'
 
 export const MAX_SIZE_MB = 5
 const JD_MIN_LENGTH = 50
@@ -68,4 +69,21 @@ export async function handleResumeScore(req, res) {
     message: 'Resume scored successfully.',
     data: result,
   })
+}
+
+function requireDb() {
+  if (!isDbConfigured()) {
+    throw new ApiError(503, 'DB_NOT_CONFIGURED', 'The database is not configured on this server.')
+  }
+}
+
+export async function handleListScores(req, res) {
+  requireDb()
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100)
+  res.json({ success: true, data: await getRecentScores(limit) })
+}
+
+export async function handleGetScore(req, res) {
+  requireDb()
+  res.json({ success: true, data: await getScore(req.params.id) })
 }

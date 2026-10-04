@@ -2,8 +2,11 @@ import express from 'express'
 import cors from 'cors'
 import multer from 'multer'
 import { ApiError } from './service.js'
+import { connectDB, isDbConfigured } from './db.js'
 import {
   MAX_SIZE_MB,
+  handleGetScore,
+  handleListScores,
   handleResumeScore,
   handleResumeUpload,
   healthCheck,
@@ -19,6 +22,8 @@ app.use(express.json())
 app.get('/api/health', healthCheck)
 app.post('/api/resume/upload', uploadResume, handleResumeUpload)
 app.post('/api/resume/score', uploadResume, handleResumeScore)
+app.get('/api/scores', handleListScores)
+app.get('/api/scores/:id', handleGetScore)
 
 app.use((req, res) => {
   res.status(404).json({
@@ -53,6 +58,12 @@ app.use((err, req, res, next) => {
     error: { code: 'INTERNAL_ERROR', message: 'Something went wrong on the server.' },
   })
 })
+
+// Connect early so the first request is fast. A failure here is logged, not fatal:
+// scoring still works and saving is retried on the next request.
+if (isDbConfigured()) {
+  connectDB().catch((err) => console.error(`MongoDB connection failed: ${err.message}`))
+}
 
 // On Vercel the app runs as a serverless function (see /api/index.js), so only listen locally.
 if (!process.env.VERCEL) {

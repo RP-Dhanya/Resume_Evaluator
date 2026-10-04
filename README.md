@@ -32,6 +32,16 @@ Other routes: `POST /api/resume/upload` (text extraction only) and `GET /api/hea
 
 ## How the score works
 
+Scoring uses the [labd](https://agent.thedevlabs.io) AI API when `LABD_API_KEY` is set in `server/.env`.
+The server extracts the resume text, sends it with the job description to labd, and asks for a JSON score across:
+Skills match (35), Experience relevance (25), Impact & achievements (15), Clarity & structure (15) and ATS readiness (10).
+The server validates labd's reply, caps each category at its maximum and adds up the total itself.
+
+If labd is not configured, fails (401/402/403/429, timeout, or an unusable reply), the server falls back to
+built-in rules and the response includes `engine: "rules"` and a `notice`. AI results have `engine: "labd"`.
+
+Built-in rules:
+
 | Category | Points |
 |---|---|
 | Job description match (skills and keywords) | 45 |
@@ -43,4 +53,5 @@ Other routes: `POST /api/resume/upload` (text extraction only) and `GET /api/hea
 ## Deploy
 
 Import the repo on Vercel with the root directory left as the repo root. `vercel.json` builds the frontend and serves the API from `/api`.
+Add `LABD_API_KEY` under Settings → Environment Variables.
 Note: Vercel limits request bodies to 4.5 MB.
